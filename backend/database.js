@@ -155,6 +155,29 @@ function initializeDatabase() {
   console.log('🎉 Inicialização do banco de dados concluída!');
 }
 
+async function ensureSystemUser() {
+  const uid = 'system';
+  const email = 'sistema@local';
+  try {
+    const exists = await getUserByUid(uid);
+    if (!exists) {
+      await upsertUser({
+        uid,
+        nomeCompleto: 'Sistema',
+        email,
+        password: null,
+        cargo: 'admin',
+      });
+      console.log('[SEED] Usuário sistema criado');
+    }
+  } catch (e) {
+    console.error('[SEED] Falha ao criar usuário sistema:', e.message);
+  }
+}
+
+ensureSystemUser();
+
+
 
 // Função para criar nova tarefa com validação e melhor error handling
 function createTask(taskData) {
