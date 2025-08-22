@@ -1,11 +1,11 @@
 // src/utils/axiosConfig.js
 import axios from 'axios';
 
-// urls padrão
-const PROD_URL = 'https://projeto-calendario.onrender.com';
-const LOCAL_URL = 'http://localhost:3001';
+// URLs padrão
+const PROD_URL = 'https://projeto-calendario.onrender.com/api';
+const LOCAL_URL = 'http://localhost:3001/api';
 
-// tenta ler da env (Vite ou Create React App), depois decide pelo host, senão local
+// tenta ler da env (Vite ou CRA), depois decide pelo host, senão local
 const ENV_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
   process.env.REACT_APP_API_BASE_URL ||
@@ -16,15 +16,15 @@ const ENV_URL =
     ? PROD_URL
     : LOCAL_URL);
 
-// garanta que termina sem barra e aponte para /api
-const baseURL = `${ENV_URL}`.replace(/\/+$/, '') + '';
+// garante que termina sem barra
+const baseURL = `${ENV_URL}`.replace(/\/+$/, '');
 
 const axiosInstance = axios.create({
-  baseURL,                // ex.: https://projeto-calendario.onrender.com
+  baseURL, // ex.: https://projeto-calendario.onrender.com/api
   timeout: 15000,
 });
 
-// adiciona Authorization: Bearer <token> se existir
+// Interceptador de request → adiciona Authorization: Bearer <token>
 axiosInstance.interceptors.request.use(
   async (config) => {
     const token = localStorage.getItem('authToken');
@@ -36,7 +36,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// trata 401 limpando sessão e voltando para login
+// Interceptador de response → trata 401 e 403
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -60,7 +60,7 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-// opcional: permitir trocar a base em runtime (útil para debug)
+// opcional: permitir trocar a base em runtime (útil para debug/teste)
 export const setApiBase = (url) => {
   axiosInstance.defaults.baseURL = `${url}`.replace(/\/+$/, '');
   console.info('[axios] baseURL alterada para', axiosInstance.defaults.baseURL);
