@@ -2,21 +2,32 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// --- Pastas de dados/arquivos ----------------------------------------------
+// Escolha do diretório de dados:
+// 1) se configurar um disco no Render, monte em /var/data e defina DATA_DIR=/var/data
+// 2) se não houver disco, use /tmp (volátil, mas gravável)
 const isRender = !!process.env.RENDER || !!process.env.RENDER_EXTERNAL_HOSTNAME;
-const dataDir = isRender ? '/data' : path.join(__dirname, 'data');
-const uploadsDir = path.join(dataDir, 'uploads');
+const preferred = process.env.DATA_DIR || (isRender ? '/var/data' : path.join(__dirname, 'data'));
 
+// Fallback seguro quando preferred não puder ser usado
+let dataDir = preferred;
 try {
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true, mode: 0o755 });
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o755 });
+  fs.mkdirSync(preferred, { recursive: true, mode: 0o755 });
 } catch (e) {
-  console.error('[DB] Falha ao criar diretórios:', e);
+  console.warn('[DB] Não foi possível usar', preferred, '-> usando /tmp/pcp');
+  dataDir = '/tmp/pcp';
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o755 });
+}
+
+const uploadsDir = path.join(dataDir, 'uploads');
+try {
+  fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o755 });
+} catch (e) {
+  console.error('[DB] Falha ao criar pasta de uploads:', e);
 }
 
 const dbPath = path.join(dataDir, 'pcp.db');
 
-// --- Conexão SQLite (cria se não existir) ----------------------------------
+// Conexão
 const db = new sqlite3.Database(
   dbPath,
   sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
@@ -27,13 +38,12 @@ const db = new sqlite3.Database(
       console.log('Conectado ao banco SQLite com sucesso!');
       console.log('[DB] Caminho do banco:', dbPath);
       console.log('[DB] Pasta de uploads:', uploadsDir);
-      db.run('PRAGMA foreign_keys = ON');
-      db.run('PRAGMA journal_mode = WAL');
-      db.run('PRAGMA busy_timeout = 10000'); // um pouco maior
+
       initializeDatabase();
     }
   }
 );
+
 
 // --- Schema / migrações (serializado) --------------------------------------
 function initializeDatabase() {
