@@ -1,7 +1,7 @@
 // src/AuthContext.jsx
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "./utils/axiosConfig"; // <<< usa o axiosInstance central
+import api from "./utils/axiosConfig"; // usa o axiosInstance central
 
 export const AuthContext = createContext();
 
@@ -18,11 +18,15 @@ export const AuthProvider = ({ children }) => {
     if (savedUser && savedToken) {
       try {
         const userData = JSON.parse(savedUser);
-        if (userData?.uid && userData?.email && (savedToken.startsWith("mock-token-") || savedToken.length > 20)) {
+        if (
+          userData?.uid &&
+          userData?.email &&
+          (savedToken.startsWith("mock-token-") || savedToken.length > 20)
+        ) {
           setUser(userData);
           console.log("[Auth] sessão restaurada");
         } else {
-          console.warn("[Auth] dados/ token inválidos – limpando");
+          console.warn("[Auth] dados/token inválidos – limpando");
           localStorage.removeItem("user");
           localStorage.removeItem("authToken");
         }
@@ -37,7 +41,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       console.log("[Login] chamando /api/login");
-      const { data } = await axios.post("/login", { email, password }); // baseURL já tem /api
+      const { data } = await api.post("/api/login", { email, password }); // <- caminho correto
       const { token, user: u } = data;
       if (!token || !u) throw new Error("Resposta inválida do servidor");
 
