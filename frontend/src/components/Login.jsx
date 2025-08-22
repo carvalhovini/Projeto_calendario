@@ -4,9 +4,6 @@ import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import "../styles/Auth.css";
 
-// URL da API - pode ser movida para um arquivo de configuração
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 const Login = () => {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
