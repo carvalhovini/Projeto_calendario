@@ -1660,10 +1660,13 @@ app.post('/api/agenda-tributaria/criar-ano-api', authenticateToken, async (req, 
 
 // servir build do frontend (Vite) pelo Node
 const frontendDist = path.resolve(__dirname, '../frontend/dist');
+
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
-  // SPA fallback
-  app.get('*', (req, res) => {
+
+  // Fallback de SPA sem usar '*' (evita o bug do path-to-regexp)
+  // Envia index.html para QUALQUER rota GET que NÃO comece com /api
+  app.get(/^\/(?!api).*/, (req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
   });
 } else {
