@@ -1,7 +1,8 @@
+// frontend/src/components/GerenciarUsuarios.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 import '../styles/GerenciarUsuarios.css';
 
 const GerenciarUsuarios = () => {
@@ -10,31 +11,29 @@ const GerenciarUsuarios = () => {
   const [error, setError] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ nome: '', tipo: 'usuario' });
+
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  // Verificar se é admin
+  // Guarda de rota: somente admin
   useEffect(() => {
+    if (!user) {
+      navigate('/');
+      return;
+    }
     if (!isAdmin) {
       navigate('/home');
       return;
     }
     carregarUsuarios();
-  }, [isAdmin, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
 
   const carregarUsuarios = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken');
-      
-      const response = await axios.get('http://localhost:3001/api/usuarios', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      setUsuarios(response.data);
+      const resp = await axiosInstance.get('/usuarios');
+      setUsuarios(resp.data || []);
       setError('');
     } catch (err) {
       console.error('Erro ao carregar usuários:', err);
@@ -46,10 +45,7 @@ const GerenciarUsuarios = () => {
 
   const iniciarEdicao = (usuario) => {
     setEditingUser(usuario.id);
-    setEditForm({
-      nome: usuario.nome,
-      tipo: usuario.tipo
-    });
+    setEditForm({ nome: usuario.nome, tipo: usuario.tipo });
   };
 
   const cancelarEdicao = () => {
@@ -59,18 +55,9 @@ const GerenciarUsuarios = () => {
 
   const salvarEdicao = async (usuarioId) => {
     try {
-      const token = localStorage.getItem('authToken');
-      
-      await axios.put(`http://localhost:3001/api/usuarios/${usuarioId}`, editForm, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      await axiosInstance.put(`/usuarios/${usuarioId}`, editForm);
       await carregarUsuarios();
-      setEditingUser(null);
-      setEditForm({ nome: '', tipo: 'usuario' });
+      cancelarEdicao();
     } catch (err) {
       console.error('Erro ao atualizar usuário:', err);
       setError('Erro ao atualizar usuário');
@@ -78,20 +65,10 @@ const GerenciarUsuarios = () => {
   };
 
   const removerUsuario = async (usuarioId, nomeUsuario) => {
-    if (!window.confirm(`Tem certeza que deseja remover o usuário "${nomeUsuario}"?`)) {
-      return;
-    }
+    if (!window.confirm(`Tem certeza que deseja remover o usuário "${nomeUsuario}"?`)) return;
 
     try {
-      const token = localStorage.getItem('authToken');
-      
-      await axios.delete(`http://localhost:3001/api/usuarios/${usuarioId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      await axiosInstance.delete(`/usuarios/${usuarioId}`);
       await carregarUsuarios();
     } catch (err) {
       console.error('Erro ao remover usuário:', err);
@@ -114,10 +91,7 @@ const GerenciarUsuarios = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold text-gray-900">Gerenciar Usuários</h1>
-              <button
-                onClick={() => navigate('/home')}
-                className="btn-voltar-header"
-              >
+              <button onClick={() => navigate('/home')} className="btn-voltar-header">
                 Voltar ao Início
               </button>
             </div>
@@ -133,7 +107,8 @@ const GerenciarUsuarios = () => {
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <p className="text-gray-600">
-                  Total de usuários cadastrados: <span className="font-semibold">{usuarios.length}</span>
+                  Total de usuários cadastrados:{' '}
+                  <span className="font-semibold">{usuarios.length}</span>
                 </p>
               </div>
             </div>
@@ -179,11 +154,13 @@ const GerenciarUsuarios = () => {
                             <option value="admin">Administrador</option>
                           </select>
                         ) : (
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            usuario.tipo === 'admin' 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              usuario.tipo === 'admin'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}
+                          >
                             {usuario.tipo === 'admin' ? 'Administrador' : 'Usuário'}
                           </span>
                         )}
