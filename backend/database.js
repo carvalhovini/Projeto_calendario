@@ -50,12 +50,10 @@ function initializeDatabase() {
   console.log('🔧 Inicializando banco de dados SQLite...');
 
   db.serialize(() => {
-    // Garantir chaves estrangeiras ativas
+    // PRAGMAs
     db.run('PRAGMA foreign_keys = ON');
     db.run('PRAGMA journal_mode = WAL');
     db.run('PRAGMA busy_timeout = 5000');
-    
-
 
     // 1) usuarios
     db.run(`
@@ -149,33 +147,30 @@ function initializeDatabase() {
       else console.log('✅ Tabela arquivo_logs criada/verificada com sucesso!');
     });
 
-    // (Removido) Migração de password — já presente no CREATE TABLE usuarios
+    // Seed do usuário "system" (evita falha de FK ao criar tarefas automáticas)
+    db.get('SELECT uid FROM usuarios WHERE uid = ?', ['system'], (err, row) => {
+      if (err) {
+        console.error('[SEED] Falha ao consultar usuário system:', err.message);
+        return;
+      }
+      if (!row) {
+        db.run(
+          `INSERT INTO usuarios (uid, nome_completo, email, password, cargo)
+           VALUES (?, ?, ?, ?, ?)`,
+          ['system', 'Sistema', 'sistema@local', null, 'admin'],
+          (e2) => {
+            if (e2) console.error('[SEED] Falha ao criar usuário system:', e2.message);
+            else console.log('[SEED] Usuário system criado');
+          }
+        );
+      } else {
+        console.log('[SEED] Usuário system já existe');
+      }
+    });
   });
 
   console.log('🎉 Inicialização do banco de dados concluída!');
 }
-
-async function ensureSystemUser() {
-  const uid = 'system';
-  const email = 'sistema@local';
-  try {
-    const exists = await getUserByUid(uid);
-    if (!exists) {
-      await upsertUser({
-        uid,
-        nomeCompleto: 'Sistema',
-        email,
-        password: null,
-        cargo: 'admin',
-      });
-      console.log('[SEED] Usuário sistema criado');
-    }
-  } catch (e) {
-    console.error('[SEED] Falha ao criar usuário sistema:', e.message);
-  }
-}
-
-ensureSystemUser();
 
 
 
