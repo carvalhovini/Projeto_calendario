@@ -1,11 +1,9 @@
+// frontend/src/components/Cadastro.jsx
 import React, { useState, useContext, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../AuthContext";
-import { userService } from "../services/api";
+import { userService } from "../services/api"; // usa axiosInstance por baixo
 import "../styles/Auth.css";
-
-// URL da API - pode ser movida para um arquivo de configuração
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const Cadastro = () => {
   const [nomeCompleto, setNomeCompleto] = useState("");
@@ -20,106 +18,77 @@ const Cadastro = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Se o usuário já está logado, redirecionar para home
-    if (user) {
-      navigate('/home');
-    }
+    if (user) navigate("/home");
   }, [user, navigate]);
 
   const fazerCadastro = async () => {
-    if (isLoading) return; // Prevenir múltiplos cliques
-    
+    if (isLoading) return;
     try {
       setIsLoading(true);
       setError("");
       setSuccessMessage("");
 
-      // Validações
       if (!nomeCompleto.trim() || !email.trim() || !senha || !confirmSenha) {
         setError("Por favor, preencha todos os campos.");
         return;
       }
-      
-      // Validar nome completo (pelo menos 2 palavras)
-      if (nomeCompleto.trim().split(' ').length < 2) {
+      if (nomeCompleto.trim().split(" ").length < 2) {
         setError("Por favor, insira seu nome completo (nome e sobrenome).");
         return;
       }
-      
-      // Validar email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         setError("Por favor, insira um email válido.");
         return;
       }
-      
-      // Validar senhas
       if (senha !== confirmSenha) {
         setError("As senhas não coincidem.");
         return;
       }
-      
       if (senha.length < 6) {
         setError("A senha deve ter pelo menos 6 caracteres.");
         return;
       }
-      
-      // Validar força da senha
       if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(senha)) {
         setError("A senha deve conter pelo menos: 1 letra maiúscula, 1 minúscula e 1 número.");
         return;
       }
 
-      // Determinar cargo baseado no código administrativo
       const cargo = codigoAdmin.trim() === "adm7258" ? "admin" : "usuario";
-      
       const userData = {
         nomeCompleto: nomeCompleto.trim(),
         email: email.toLowerCase().trim(),
         password: senha,
-        cargo: cargo
+        cargo,
       };
 
       console.log("[CADASTRO] Iniciando registro na API...", { email: userData.email, cargo });
+      const response = await userService.register(userData); // POST /api/cadastro via axiosInstance
 
-      // Registrar usuário via API
-      const response = await userService.register(userData);
+      if (response?.error) throw new Error(response.error);
 
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
-      // Se o cadastro foi bem-sucedido, fazer login automático
       setSuccessMessage("Cadastro realizado com sucesso! Fazendo login...");
-      
+
       try {
-        // Fazer login automático imediatamente
-        await login(userData.email, userData.password);
+        await login(userData.email, userData.password); // AuthContext deve usar axiosInstance também
         console.log("[CADASTRO] Login automático realizado com sucesso!");
-        // A navegação para /home é feita pelo AuthContext
       } catch (loginError) {
         console.error("[CADASTRO] Erro no login automático:", loginError);
-        // Se o login automático falhar, redirecionar para login manual
         setSuccessMessage("Cadastro realizado! Por favor, faça login para continuar.");
-        setTimeout(() => navigate("/"), 3000); // Redirecionar para login em vez de /home
+        setTimeout(() => navigate("/"), 3000);
       }
-
-    } catch (error) {
-      console.error("[CADASTRO] Erro no cadastro:", error);
-      
-      // Tratar diferentes tipos de erro
+    } catch (err) {
+      console.error("[CADASTRO] Erro no cadastro:", err);
       let errorMessage = "Erro ao cadastrar. Tente novamente.";
-      
-      if (error.response?.status === 400) {
-        errorMessage = error.response.data?.error || "Dados inválidos. Verifique as informações.";
-      } else if (error.response?.status === 409) {
+      if (err.response?.status === 400) {
+        errorMessage = err.response.data?.error || "Dados inválidos. Verifique as informações.";
+      } else if (err.response?.status === 409) {
         errorMessage = "Este email já está cadastrado. Tente fazer login.";
-      } else if (error.response?.status === 500) {
+      } else if (err.response?.status === 500) {
         errorMessage = "Erro interno do servidor. Tente novamente mais tarde.";
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
-      
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -135,7 +104,7 @@ const Cadastro = () => {
         <div className="card-body">
           {error && <div className="auth-alert-danger" role="alert">{error}</div>}
           {successMessage && <div className="auth-alert-success" role="alert">{successMessage}</div>}
-          
+
           <div className="auth-form-group">
             <label htmlFor="nomeCompleto">Nome Completo</label>
             <div className="auth-input-group">
@@ -153,7 +122,7 @@ const Cadastro = () => {
               <span className="auth-input-icon"><i className="bi bi-person-fill"></i></span>
             </div>
           </div>
-          
+
           <div className="auth-form-group">
             <label htmlFor="email">Email</label>
             <div className="auth-input-group">
@@ -171,7 +140,7 @@ const Cadastro = () => {
               <span className="auth-input-icon"><i className="bi bi-envelope-fill"></i></span>
             </div>
           </div>
-          
+
           <div className="auth-form-group">
             <label htmlFor="password">Senha</label>
             <div className="auth-input-group">
@@ -189,9 +158,11 @@ const Cadastro = () => {
               />
               <span className="auth-input-icon"><i className="bi bi-lock-fill"></i></span>
             </div>
-            <small className="text-muted">A senha deve ter pelo menos 6 caracteres, com letra maiúscula, minúscula e número.</small>
+            <small className="text-muted">
+              A senha deve ter pelo menos 6 caracteres, com letra maiúscula, minúscula e número.
+            </small>
           </div>
-          
+
           <div className="auth-form-group">
             <label htmlFor="confirmPassword">Confirmar Senha</label>
             <div className="auth-input-group">
@@ -212,7 +183,7 @@ const Cadastro = () => {
               </span>
             </div>
           </div>
-          
+
           <div className="auth-form-group">
             <label htmlFor="codigoAdmin">Código Administrativo (Opcional)</label>
             <div className="auth-input-group">
@@ -230,29 +201,35 @@ const Cadastro = () => {
                 <i className={`bi ${codigoAdmin.trim() === 'adm7258' ? 'bi-shield-check text-success' : 'bi-shield'}`}></i>
               </span>
             </div>
-            <small className="text-muted">Deixe em branco para cadastro como usuário comum. Use o código especial para acesso administrativo.</small>
+            <small className="text-muted">
+              Deixe em branco para cadastro como usuário comum. Use o código especial para acesso administrativo.
+            </small>
           </div>
-          
-          <button 
-            className="auth-btn-primary w-100 mb-3" 
+
+          <button
+            className="auth-btn-primary w-100 mb-3"
             onClick={fazerCadastro}
             disabled={isLoading}
             type="button"
           >
             {isLoading ? (
-              <><i className="bi bi-arrow-clockwise" style={{animation: 'spin 1s linear infinite'}}></i> Cadastrando...</>
+              <>
+                <i className="bi bi-arrow-clockwise" style={{ animation: "spin 1s linear infinite" }}></i> Cadastrando...
+              </>
             ) : (
-              <><i className="bi bi-person-plus-fill"></i> Cadastrar</>
+              <>
+                <i className="bi bi-person-plus-fill"></i> Cadastrar
+              </>
             )}
           </button>
-          
+
           <div className="auth-separator-line"></div>
-          
+
           <div className="auth-link-container">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="auth-btn-professional"
-              style={{ pointerEvents: isLoading ? 'none' : 'auto', opacity: isLoading ? 0.6 : 1 }}
+              style={{ pointerEvents: isLoading ? "none" : "auto", opacity: isLoading ? 0.6 : 1 }}
             >
               Voltar ao login
             </Link>
