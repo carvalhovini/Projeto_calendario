@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+// frontend/src/components/ForgotPassword.jsx
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
+import axiosInstance from "../utils/axiosConfig";
 import "../styles/Auth.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const ForgotPassword = () => {
   const [step, setStep] = useState(1); // 1: Email, 2: Verificação da senha anterior, 3: Nova senha
