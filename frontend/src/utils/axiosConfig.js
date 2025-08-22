@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // URLs padrão
 const PROD_URL = 'https://projeto-calendario.onrender.com/api';
-const LOCAL_URL = 'https://projeto-calendario.onrender.com/api';
+const LOCAL_URL = 'http://localhost:3001/api';
 
 // tenta ler da env (Vite ou CRA), depois decide pelo host, senão local
 const ENV_URL =
