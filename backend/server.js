@@ -44,64 +44,77 @@ app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.path} at ${new Date().toISOString()}`);
   next();
 });
+// --- COLE isto próximo do topo do server.js (antes de authenticateToken) ---
+let admin;
+try {
+  admin = require('firebase-admin');
 
-// Middleware de autenticação
-const authenticateToken = async (req, res, next) => {
-  console.log('[AUTH] === INICIANDO VERIFICAÇÃO DE TOKEN ===');
-  console.log('[AUTH] URL:', req.method, req.path);
-  console.log('[AUTH] Headers completos:', JSON.stringify(req.headers, null, 2));
-  
-  const authHeader = req.headers.authorization;
-  console.log('[AUTH] Cabeçalho de autorização recebido:', authHeader);
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('[AUTH] ❌ Token não fornecido ou formato incorreto');
-    console.error('[AUTH] Headers disponíveis:', Object.keys(req.headers));
-    return res.status(401).json({ error: "Token não fornecido" });
+  if (!admin.apps.length) {
+    // tenta inicializar: usa credencial padrão do ambiente
+    // ou JSON vindo de FIREBASE_SERVICE_ACCOUNT_JSON
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      admin.initializeApp({ credential: admin.credential.cert(svc) });
+      console.log('[AUTH] Firebase Admin inicializado via SERVICE_ACCOUNT_JSON');
+    } else {
+      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+      console.log('[AUTH] Firebase Admin inicializado via credencial padrão');
+    }
   }
-  
-  const token = authHeader.split(' ')[1];
-  console.log('[AUTH] Token extraído:', token ? token.substring(0, 20) + '...' : 'VAZIO');
-  
+} catch (e) {
+  console.warn('[AUTH] firebase-admin não disponível. Usando apenas tokens mock.', e.message);
+  admin = null; // garante que não será usado adiante
+}
+
+
+// --- SUBSTITUA sua função inteira por esta ---
+const authenticateToken = async (req, res, next) => {
   try {
-    // Verificar se é um token mock para desenvolvimento
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token não fornecido' });
+    }
+    const token = authHeader.slice(7);
+
+    // 1) Token mock para desenvolvimento/teste
     if (token.startsWith('mock-token-')) {
-      console.log('[AUTH] Processando token mock...');
-      const uid = token.replace('mock-token-', ''); // Remove o prefixo para obter o UID completo
-      console.log('[AUTH] UID extraído do token:', uid);
-      
-      // Buscar dados reais do usuário no banco SQLite
+      const uid = token.substring('mock-token-'.length);
+
       const userData = await getUserByUid(uid);
-      console.log('[AUTH] Dados do usuário encontrados:', !!userData);
-      
       if (!userData) {
-        console.error('[AUTH] ❌ Usuário não encontrado no banco:', uid);
-        return res.status(401).json({ error: "Usuário não encontrado" });
+        return res.status(401).json({ error: 'Usuário não encontrado' });
       }
-      
-      req.user = { 
-        uid: userData.uid, 
+
+      req.user = {
+        uid: userData.uid,
         email: userData.email,
         nomeCompleto: userData.nome_completo,
         cargo: userData.cargo
       };
-      console.log('[AUTH] ✅ Token mock válido, dados do usuário:', req.user);
-      next();
-      return;
+      return next();
     }
-    
-    // Verificar se é um token Firebase válido
-    console.log('[AUTH] Tentando verificar como token Firebase...');
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = { uid: decodedToken.uid, email: decodedToken.email };
-    console.log('[AUTH] ✅ Token Firebase válido, UID extraído:', req.user.uid);
-    next();
-  } catch (error) {
-    console.error("[AUTH] ❌ Erro na autenticação:", error.message);
-    console.error("[AUTH] Stack trace:", error.stack);
-    res.status(401).json({ error: "Token inválido" });
+
+    // 2) Token Firebase (só se firebase-admin estiver configurado)
+    if (admin && admin.auth) {
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.user = { uid: decoded.uid, email: decoded.email || '' };
+        return next();
+      } catch (e) {
+        return res.status(401).json({ error: 'Token inválido' });
+      }
+    }
+
+    // 3) Sem firebase-admin disponível → não dá pra validar token real
+    return res.status(401).json({ error: 'Autenticação via Firebase não disponível neste ambiente. Use mock-token-<UID> para teste.' });
+
+  } catch (err) {
+    console.error('[AUTH] Erro inesperado:', err);
+    return res.status(500).json({ error: 'Erro na autenticação' });
   }
 };
+
+
 
 // Endpoint de health check
 app.get('/api/health', (req, res) => {
