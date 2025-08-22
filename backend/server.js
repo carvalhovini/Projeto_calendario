@@ -1658,6 +1658,19 @@ app.post('/api/agenda-tributaria/criar-ano-api', authenticateToken, async (req, 
   }
 });
 
+// servir build do frontend (Vite) pelo Node
+const frontendDist = path.resolve(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  // SPA fallback
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+} else {
+  console.warn('[FRONT] pasta dist não encontrada em', frontendDist);
+}
+
+
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
